@@ -2,36 +2,37 @@
   def attribute(arg, &block)
     
     name = arg
+    if arg.class == Hash
+      arg.each { |key, val| name = key }
+    end
 
-    class_variable_set(:@@inits, {}) unless class_variable_defined?(:@@inits)
+    class_variable_set("@@#{name}".to_sym, nil) unless class_variable_defined?("@@#{name}".to_sym)
 
     if arg.class == Hash
-      inits = class_variable_get(:@@inits)
       arg.each do |key, val|
-        name = key
-        inits[name] = val
+        class_variable_set("@@#{name}".to_sym, val)
       end
-      class_variable_set(:@@inits, inits)
     end
 
     if block
-      inits = class_variable_get(:@@inits)
-      inits[name] = block
-      class_variable_set(:@@inits, inits)
+      class_variable_set("@@#{name}".to_sym, block)
     end
 
-    puts class_variable_get(:@@inits)
-    puts class_variables
+    # puts class_variables.to_s
 
     define_method :initialize do
-      self.class.class_variable_get(:@@inits).each do |name, val|
+      self.class.class_variables.each do |var|
+        val = self.class.class_variable_get(var)
+        var = var.to_s.delete('@')
         val = self.instance_eval &val if val.class == Proc
-        self.instance_variable_set(("@"+name).to_sym, val)
+        self.instance_variable_set(("@"+var).to_sym, val)
       end
     end
 
     define_method name.to_sym do 
-      self.instance_variable_get(("@"+name).to_sym)
+      val = self.instance_variable_get(("@"+name).to_sym)
+      return self.instance_eval &val if val.class == Proc
+      val
     end
 
     define_method "#{name}=".to_sym do |val|
