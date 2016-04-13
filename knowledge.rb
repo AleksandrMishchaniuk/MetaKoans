@@ -3,20 +3,29 @@
     
     name = arg
 
-    if arg.class == Hash
+    class_variable_set(:@@inits, {}) unless class_variable_defined?(:@@inits)
 
+    if arg.class == Hash
+      inits = class_variable_get(:@@inits)
       arg.each do |key, val|
         name = key
-        define_method :initialize do
-          self.instance_variable_set(("@"+name).to_sym, val)
-        end
+        inits[name] = val
       end
-
+      class_variable_set(:@@inits, inits)
     end
 
     if block
-      define_method :initialize do
-        val = self.instance_eval &block
+      inits = class_variable_get(:@@inits)
+      inits[name] = block
+      class_variable_set(:@@inits, inits)
+    end
+
+    puts class_variable_get(:@@inits)
+    puts class_variables
+
+    define_method :initialize do
+      self.class.class_variable_get(:@@inits).each do |name, val|
+        val = self.instance_eval &val if val.class == Proc
         self.instance_variable_set(("@"+name).to_sym, val)
       end
     end
