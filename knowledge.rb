@@ -2,9 +2,6 @@
   def attribute(arg, &block)
     
     name = arg
-    # if arg.class == Hash
-    #   arg.each { |key, val| name = key }
-    # end
 
     class_variable_set(:@@inits, {}) unless class_variable_defined?(:@@inits)
 
@@ -25,18 +22,7 @@
       class_variable_set(:@@inits, inits)
     end
 
-    # puts class_variables.to_s
-
     define_method :initialize do
-      # self.class.class_variables.each do |var|
-      #   val = self.class.class_variable_get(var)
-
-      #   puts self.class.to_s+' => '+var.to_s+" = "+val.to_s #-----------
-        
-      #   var = var.to_s.delete('@')
-      #   val = self.instance_eval &val if val.class == Proc
-      #   self.instance_variable_set(("@"+var).to_sym, val)
-      # end
       self.class.class_variable_get(:@@inits).each do |name, val|
         val = self.instance_eval &val if val.class == Proc
         self.instance_variable_set(("@#{name}").to_sym, val)
@@ -44,39 +30,46 @@
     end
 
     define_method name.to_sym do 
-      val = self.instance_variable_get(("@"+name).to_sym)
-      # return self.instance_eval &val if val.class == Proc
-      val
+      if self.class == Class
+        self.class_variable_get(("@@"+name).to_sym)
+      else
+        self.instance_variable_get(("@"+name).to_sym)
+      end
     end
 
     define_method "#{name}=".to_sym do |val|
-      self.instance_variable_set(("@"+name).to_sym, val)
+      if self.class == Class
+        self.class_variable_set(("@@"+name).to_sym, val)
+      else
+        self.instance_variable_set(("@"+name).to_sym, val)
+      end
     end
     
-    define_method "#{name}?".to_sym do 
-      return false unless self.instance_variable_get(("@"+name).to_sym)
-      self.instance_variable_defined?(("@"+name).to_sym)
+    define_method "#{name}?".to_sym do
+      if self.class == Class
+        return false unless self.class_variable_defined?(("@@"+name).to_sym)
+        return false unless self.class_variable_get(("@@"+name).to_sym)
+        true
+      else
+        return false unless self.instance_variable_defined?(("@"+name).to_sym)
+        return false unless self.instance_variable_get(("@"+name).to_sym)
+        true
+      end
     end
 
-    define_singleton_method name.to_sym do 
-      self.class_variable_get(("@@"+name).to_sym)
-    end
-
-    define_singleton_method "#{name}=".to_sym do |val|
-      self.class_variable_set(("@@"+name).to_sym, val)
-    end
-    
-    define_singleton_method "#{name}?".to_sym do 
-      return false unless self.class_variable_get(("@@"+name).to_sym)
-      self.class_variable_defined?(("@@"+name).to_sym)
-    end
-
-    def self.inherited(subclass)
+    define_singleton_method :inherited do |subclass|
+      # subclass.remove_class_variable(:@@inits)
       self.class_variables.each do |var|
         val = self.class_variable_get(var)
-        # puts self.to_s+' => '+var.to_s+" = "+val.to_s        #-----------
         subclass.class_variable_set(var, val)
-        # puts subclass.to_s+' => '+var.to_s+" = "+subclass.class_variable_get(var).to_s #-----------
+      end
+    end
+
+
+    define_singleton_method :included do |subclass|
+      self.class_variables.each do |var|
+        val = self.class_variable_get(var)
+        subclass.class_variable_set(var, val)
       end
     end
 
