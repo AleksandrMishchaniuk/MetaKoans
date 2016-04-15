@@ -57,19 +57,36 @@
       end
     end
 
-    define_singleton_method :inherited do |subclass|
-      # subclass.remove_class_variable(:@@inits)
+    define_singleton_method :included do |subclass|
       self.class_variables.each do |var|
         val = self.class_variable_get(var)
         subclass.class_variable_set(var, val)
       end
     end
 
-
-    define_singleton_method :included do |subclass|
-      self.class_variables.each do |var|
-        val = self.class_variable_get(var)
+    define_method :inherited do |subclass|
+      subclass.class_variables.each do |var|
+        val = subclass.class_variable_get(var)
+        var = (var.to_s + '_i').to_sym
         subclass.class_variable_set(var, val)
+      end
+      
+      subclass.class_variable_get(:@@inits_i).each do |name, val_1|
+        name_i = name + '_i'
+
+        subclass.send :define_singleton_method, name.to_sym do 
+            subclass.class_variable_get(("@@"+name_i).to_sym)
+        end
+
+        subclass.send :define_singleton_method, "#{name}=".to_sym do |val|
+            subclass.class_variable_set(("@@"+name_i).to_sym, val)
+        end
+        
+        subclass.send :define_singleton_method, "#{name}?".to_sym do
+            return false unless subclass.class_variable_defined?(("@@"+name_i).to_sym)
+            return false unless subclass.class_variable_get(("@@"+name_i).to_sym)
+            true
+        end
       end
     end
 
